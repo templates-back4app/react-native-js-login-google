@@ -24,21 +24,27 @@ export const UserLogIn = () => {
     const passwordValue = password;
     return await Parse.User.logIn(usernameValue, passwordValue)
       .then(async (loggedInUser) => {
-        // logIn returns the corresponding ParseUser object
-        Alert.alert(
-          'Success!',
-          `User ${loggedInUser.get('username')} has successfully signed in!`,
-        );
-        // To verify that this is in fact the current user, currentAsync can be used
-        const currentUser = await Parse.User.currentAsync();
-        console.log(loggedInUser === currentUser);
-        // Navigation.navigate takes the user to the screen named after the one
-        // passed as parameter
-        navigation.navigate('Home');
-        return true;
+        // logIn will throw an error if the user is not verified yet,
+        // but it's safer to check again after login
+        if (loggedInUser.get('emailVerified') === true) {
+          Alert.alert(
+            'Success!',
+            `User ${loggedInUser.get('username')} has successfully signed in!`,
+          );
+          // Verify this is in fact the current user
+          const currentUser = await Parse.User.currentAsync();
+          console.log(loggedInUser === currentUser);
+          // Navigation.navigate takes the user to the home screen
+          navigation.navigate('Home');
+          return true;
+        } else {
+          await Parse.User.logOut();
+          return false;
+        }
       })
       .catch((error) => {
-        // Error can be caused by wrong parameters or lack of Internet connection
+        // Error can be caused by wrong parameters or lack of Internet connection.
+        // A non-verified user will also cause an error
         Alert.alert('Error!', error.message);
         return false;
       });
@@ -52,11 +58,19 @@ export const UserLogIn = () => {
       const userInfo = await GoogleSignin.signIn();
       const googleIdToken = userInfo.idToken;
       const googleUserId = userInfo.user.id;
-      // Log in on Parse using this Google id token
-      const user = new Parse.User();
-      return await user
+      const googleEmail = userInfo.user.email;
+      const authData = {
+        id: googleUserId,
+        id_token: googleIdToken,
+      };
+      // Log in or sign up on Parse using this Google credentials
+      let userToLogin = new Parse.User();
+      // Set username and email to match google email
+      userToLogin.set('username', googleEmail);
+      userToLogin.set('email', googleEmail);
+      return await userToLogin
         .linkWith('google', {
-          authData: {id: googleUserId, id_token: googleIdToken},
+          authData: authData,
         })
         .then(async (loggedInUser) => {
           // logIn returns the corresponding ParseUser object

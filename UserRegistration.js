@@ -9,29 +9,37 @@ import {
 } from 'react-native';
 import Parse from 'parse/react-native';
 import {useNavigation} from '@react-navigation/native';
+import {StackActions} from '@react-navigation/native';
 import Styles from './Styles';
 
 export const UserRegistration = () => {
   const navigation = useNavigation();
 
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const doUserSignUp = async function () {
     // Note that this values come from state variables that we've declared before
-    const usernameValue = username;
+    const emailValue = email;
     const passwordValue = password;
     // Since the signUp method returns a Promise, we need to call it using await
-    return await Parse.User.signUp(usernameValue, passwordValue)
-      .then((createdUser) => {
+    return await Parse.User.signUp(emailValue, passwordValue, {
+      email: emailValue,
+    })
+      .then(async (createdUser) => {
         // Parse.User.signUp returns the already created ParseUser object if successful
         Alert.alert(
           'Success!',
-          `User ${createdUser.get('username')} was successfully created!`,
+          `User ${createdUser.get(
+            'username',
+          )} was successfully created! Verify your email to login`,
         );
-        // Navigation.navigate takes the user to the screen named after the one
-        // passed as parameter
-        navigation.navigate('Home');
+        // Since email verification is now required, make sure to log out
+        // the new user, so any Session created is cleared and the user can
+        // safely log in again after verifying
+        await Parse.User.logOut();
+        // Go back to the login page
+        navigation.dispatch(StackActions.popToTop());
         return true;
       })
       .catch((error) => {
@@ -46,9 +54,9 @@ export const UserRegistration = () => {
       <View style={Styles.form}>
         <TextInput
           style={Styles.form_input}
-          value={username}
-          placeholder={'Username'}
-          onChangeText={(text) => setUsername(text)}
+          value={email}
+          placeholder={'Email'}
+          onChangeText={(text) => setEmail(text)}
           autoCapitalize={'none'}
           keyboardType={'email-address'}
         />
